@@ -78,11 +78,11 @@ inline void addPropagationOptions(
       "prop-eta-range", po::value<Reals<2>>()->default_value({{-4., 4.}}),
       "Pseudorapidity range for proprapolated tracks.")(
       "prop-pt-range",
-      po::value<Reals<2>>()->default_value({{100_MeV, 100_GeV}}),
+      po::value<Reals<2>>()->default_value({{50_MeV, 100_GeV}}),
       "Transverse momentum range for proprapolated tracks [in GeV].")(
       "prop-max-stepsize", po::value<double>()->default_value(3_m),
       "Maximum step size for the propagation [in mm].")(
-      "prop-pt-loopers", po::value<double>()->default_value(500_MeV),
+      "prop-pt-loopers", po::value<double>()->default_value(50_MeV),
       "Transverse momentum below which loops are being detected [in GeV].");
 }
 
