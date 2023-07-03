@@ -94,10 +94,10 @@ class PropagationAlgorithm : public IAlgorithm {
     /// eta range
     std::pair<double, double> etaRange = {-4., 4.};
     /// pt range
-    std::pair<double, double> ptRange = {100 * Acts::UnitConstants::MeV,
+    std::pair<double, double> ptRange = {50 * Acts::UnitConstants::MeV,
                                          100 * Acts::UnitConstants::GeV};
     /// looper protection
-    double ptLoopers = 500 * Acts::UnitConstants::MeV;
+    double ptLoopers = 50 * Acts::UnitConstants::MeV;
 
     /// Max step size steering
     double maxStepSize = 3 * Acts::UnitConstants::m;
