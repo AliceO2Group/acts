@@ -78,8 +78,7 @@ class PropagationAlgorithm : public IAlgorithm {
     std::pair<double, double> ptRange = {50 * Acts::UnitConstants::MeV,
                                          100 * Acts::UnitConstants::GeV};
     /// particle hypothesis
-    Acts::ParticleHypothesis particleHypothesis =
-        Acts::ParticleHypothesis::pion();
+    Acts::ParticleHypothesis particleHypothesis = Acts::ParticleHypothesis::pion();
     /// looper protection
     double ptLoopers = 50 * Acts::UnitConstants::MeV;
 
