@@ -55,8 +55,31 @@ class PropagationAlgorithm : public IAlgorithm {
     bool multipleScattering = true;
     /// Modify the behavior of the material interaction: record
     bool recordMaterialInteractions = true;
+
+    /// number of particles
+    size_t ntests = 100;
+    /// d0 gaussian sigma
+    double d0Sigma = 15 * Acts::UnitConstants::um;
+    /// z0 gaussian sigma
+    double z0Sigma = 55 * Acts::UnitConstants::mm;
+    /// phi gaussian sigma (used for covariance transport)
+    double phiSigma = 0.001;
+    /// theta gaussian sigma (used for covariance transport)
+    double thetaSigma = 0.001;
+    /// qp gaussian sigma (used for covariance transport)
+    double qpSigma = 0.0001 / 1 * Acts::UnitConstants::GeV;
+    /// t gaussian sigma (used for covariance transport)
+    double tSigma = 1 * Acts::UnitConstants::ns;
+    /// phi range
+    std::pair<double, double> phiRange = {-M_PI, M_PI};
+    /// eta range
+    std::pair<double, double> etaRange = {-4., 4.};
+    /// pt range
+    std::pair<double, double> ptRange = {50 * Acts::UnitConstants::MeV,
+                                         100 * Acts::UnitConstants::GeV};
     /// looper protection
-    double ptLoopers = 500 * Acts::UnitConstants::MeV;
+    double ptLoopers = 50 * Acts::UnitConstants::MeV;
+
     /// Max step size steering
     double maxStepSize = 5 * Acts::UnitConstants::m;
     /// Switch covariance transport on
