@@ -33,8 +33,8 @@ class ResPlotTool {
 
     /// Binning info for variables
     std::map<std::string, PlotHelpers::Binning> varBinning = {
-        {"Eta", PlotHelpers::Binning("#eta", 40, -4, 4)},
-        {"Pt", PlotHelpers::Binning("pT [GeV/c]", 40, 0, 100)},
+        {"Eta", PlotHelpers::Binning("#eta", 80, -4, 4)}, //40, -4, 4)}, // IA
+        {"Pt", PlotHelpers::Binning("pT [GeV/c]", 1000, 0, 50)}, // 40, 0, 100)}, // IA
         {"Pull", PlotHelpers::Binning("pull", 100, -5, 5)},
         {"Residual_d0", PlotHelpers::Binning("r_{d0} [mm]", 100, -0.5, 0.5)},
         {"Residual_z0", PlotHelpers::Binning("r_{z0} [mm]", 100, -0.5, 0.5)},
