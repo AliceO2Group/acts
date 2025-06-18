@@ -56,7 +56,7 @@ class PropagationAlgorithm : public IAlgorithm {
     /// Modify the behavior of the material interaction: record
     bool recordMaterialInteractions = true;
     /// looper protection
-    double ptLoopers = 500 * Acts::UnitConstants::MeV;
+    double ptLoopers = 50 * Acts::UnitConstants::MeV;
     /// Max step size steering
     double maxStepSize = 5 * Acts::UnitConstants::m;
     /// Switch covariance transport on
