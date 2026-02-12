@@ -165,7 +165,9 @@ ProcessCode PrototracksToParameters::execute(
     auto fieldRes = m_cfg.magneticField->getField(
         {bottomSP->x(), bottomSP->y(), bottomSP->z()}, bCache);
     if (!fieldRes.ok()) {
-      ACTS_ERROR("Field lookup error: " << fieldRes.error());
+      ACTS_ERROR("Field lookup error: "
+                 << fieldRes.error() << " in Prototracks " << bottomSP->x()
+                 << ", " << bottomSP->y() << ", " << bottomSP->z());
       return ProcessCode::ABORT;
     }
     Acts::Vector3 field = *fieldRes;
