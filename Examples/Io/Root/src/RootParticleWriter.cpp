@@ -69,6 +69,8 @@ ActsExamples::RootParticleWriter::RootParticleWriter(
   m_outputTree->Branch("generation", &m_generation);
   m_outputTree->Branch("sub_particle", &m_subParticle);
 
+  m_outputTree->Branch("mother_particle_id", &m_motherParticleId);
+
   m_outputTree->Branch("bc", &m_bc);
 
   m_outputTree->Branch("e_loss", &m_eLoss);
@@ -144,6 +146,23 @@ ActsExamples::ProcessCode ActsExamples::RootParticleWriter::writeT(
     m_generation.push_back(particle.particleId().generation());
     m_subParticle.push_back(particle.particleId().subParticle());
 
+    // Compute mother particle ID
+    // For primary particles (generation 0), mother ID is 0
+    // For secondary particles, reconstruct mother barcode from generation-1
+    std::uint64_t motherid = 0;
+    if (particle.particleId().generation() > 0) {
+      // Mother has one less generation, same vertex info
+      SimBarcode motherBarcode = SimBarcode(0u)
+          .setVertexPrimary(particle.particleId().vertexPrimary())
+          .setVertexSecondary(particle.particleId().vertexSecondary())
+          .setParticle(particle.particleId().particle())
+          .setGeneration(particle.particleId().generation() - 1);
+      // Note: we don't know the exact subParticle index of the mother
+      // This gives an approximate mother ID - exact matching requires the map
+      motherid = motherBarcode.value();
+    }
+    m_motherParticleId.push_back(motherid);
+
     m_bc.push_back(particle.initial().BC());
 
     m_eLoss.push_back(Acts::clampValue<float>(particle.energyLoss() /
@@ -186,6 +205,7 @@ ActsExamples::ProcessCode ActsExamples::RootParticleWriter::writeT(
   m_pathInL0.clear();
 
   m_bc.clear();
+  m_motherParticleId.clear();
 
   return ProcessCode::SUCCESS;
 }

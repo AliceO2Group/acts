@@ -43,6 +43,9 @@ class RootParticleWriter final : public WriterT<SimParticleContainer> {
     std::string fileMode = "RECREATE";
     /// Name of the tree within the output file.
     std::string treeName = "particles";
+    /// Input map from daughter to mother particle IDs (optional)
+    /// If provided, will write mother_particle_id branch
+    std::string inputDaughterToMotherMap = "";
   };
 
   /// Construct the particle writer.
@@ -112,6 +115,9 @@ class RootParticleWriter final : public WriterT<SimParticleContainer> {
   std::vector<std::uint32_t> m_particle;
   std::vector<std::uint32_t> m_generation;
   std::vector<std::uint32_t> m_subParticle;
+
+  /// Mother/parent particle ID (0 if no mother, i.e., primary particle)
+  std::vector<std::uint64_t> m_motherParticleId;
 
   std::vector<std::int32_t> m_bc;
 

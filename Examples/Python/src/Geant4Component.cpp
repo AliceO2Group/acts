@@ -186,7 +186,7 @@ PYBIND11_MODULE(ActsPythonBindingsGeant4, mod) {
                          std::shared_ptr<Config>>(alg, "Config")
                   .def(py::init<>());
     ACTS_PYTHON_STRUCT(
-        c1, outputSimHits, outputParticles, outputPropagationSummaries,
+        c1, outputSimHits, outputParticles, outputParticlesDecay, outputPropagationSummaries,
         sensitiveSurfaceMapper, magneticField, physicsList, killVolume,
         killAfterTime, killSecondaries, recordHitsOfCharged,
         recordHitsOfNeutrals, recordHitsOfPrimaries, recordHitsOfSecondaries,

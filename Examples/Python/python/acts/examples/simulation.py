@@ -520,6 +520,7 @@ def addFatras(
         s,
         alg.config.outputSimHits,
         outputParticles,
+        None,
         outputDirCsv,
         outputDirRoot,
         outputDirObj,
@@ -533,6 +534,7 @@ def addSimWriters(
     s: acts.examples.Sequencer,
     simHits: str = "simhits",
     particlesSimulated: str = "particles_simulated",
+    particlesDecay: Optional[str] = None,
     outputDirCsv: Optional[Union[Path, str]] = None,
     outputDirRoot: Optional[Union[Path, str]] = None,
     outputDirObj: Optional[Union[Path, str]] = None,
@@ -560,6 +562,15 @@ def addSimWriters(
                 outputStem="hits",
             )
         )
+        if particlesDecay is not None:
+            s.addWriter(
+                acts.examples.CsvParticleWriter(
+                    level=customLogLevel(),
+                    outputDir=str(outputDirCsv),
+                    inputParticles=particlesDecay,
+                    outputStem="particles_decay",
+                )
+            )
 
     if outputDirRoot is not None:
         outputDirRoot = Path(outputDirRoot)
@@ -572,6 +583,15 @@ def addSimWriters(
                 filePath=str(outputDirRoot / "particles_simulation.root"),
             )
         )
+        if particlesDecay is not None:
+            s.addWriter(
+                acts.examples.RootParticleWriter(
+                    level=customLogLevel(),
+                    inputParticles=particlesDecay,
+                    filePath=str(outputDirRoot / "particles_decay.root"),
+                )
+            )
+
         s.addWriter(
             acts.examples.RootSimHitWriter(
                 level=customLogLevel(),
@@ -608,6 +628,7 @@ def addGeant4(
     materialMappings: List[str] = ["Silicon"],
     inputParticles: str = "particles_generated_selected",
     outputParticles: str = "particles_simulated",
+    outputParticlesDecay: str = "particles_decay",
     outputSimHits: str = "simhits",
     recordHitsOfSecondaries=True, #False,#True, ### IA
     keepParticlesWithoutHits=False,#True, ### IA
@@ -665,6 +686,7 @@ def addGeant4(
         randomNumbers=rnd,
         inputParticles=inputParticles,
         outputParticles=outputParticles,
+        outputParticlesDecay=outputParticlesDecay,
         outputSimHits=outputSimHits,
         sensitiveSurfaceMapper=sensitiveMapper,
         magneticField=field,
@@ -690,6 +712,7 @@ def addGeant4(
         s,
         alg.config.outputSimHits,
         outputParticles,
+        outputParticlesDecay,
         outputDirCsv,
         outputDirRoot,
         outputDirObj,
