@@ -43,15 +43,63 @@ void ParticleTrackingAction::PreUserTrackingAction(const G4Track* aTrack) {
     ACTS_WARNING("Hit buffer not empty after track");
   }
 
-  auto barcode = makeParticleId(aTrack->GetTrackID(), aTrack->GetParentID());
-
+  // Check if this is a daughter from a decay
+  G4int parentId = aTrack->GetParentID();
+  G4int pdg = aTrack->GetParticleDefinition()->GetPDGEncoding();
+  SimBarcode barcode;
+  
+  // Look up if parent has decay daughters registered
+  if (parentId > 0 && eventStore().decayVertexMap.contains(parentId)) {
+    auto& decayDaughters = eventStore().decayVertexMap.at(parentId);
+    
+    // Find matching daughter by PDG (and potentially other criteria if needed)
+    DecayVertexInfo* matchedDaughter = nullptr;
+    for (auto& daughter : decayDaughters) {
+      if (daughter.pdg == pdg) {
+        // Check if this barcode is not yet used
+        if (!eventStore().trackIdMapping.contains(aTrack->GetTrackID())) {
+          matchedDaughter = &daughter;
+          break;
+        }
+      }
+    }
+    
+    if (matchedDaughter) {
+      // Use the pre-assigned barcode from decay vertex
+      barcode = matchedDaughter->barcode;
+      eventStore().trackIdMapping[aTrack->GetTrackID()] = barcode;
+      
+      ACTS_VERBOSE("Matched decay daughter: trackID " << aTrack->GetTrackID()
+                   << ", barcode " << barcode
+                   << ", PDG " << pdg
+                   << " from parent trackID " << parentId);
+      
+      // Register in particlesInitial with decay vertex information
+      auto fatrasParticle = convert(*aTrack, barcode);
+      SimParticle particle(fatrasParticle, fatrasParticle);
+      auto [it, success] = eventStore().particlesInitial.insert(particle);
+      
+      if (!success) {
+        eventStore().particleIdCollisionsInitial++;
+        ACTS_WARNING("Particle ID collision with "
+                     << particle.particleId()
+                     << " detected for decay daughter. Skip particle");
+      }
+      return;
+    }
+  }
+  
+  // Not a decay daughter or no match found - use standard barcode creation
+  auto barcodeOpt = makeParticleId(aTrack->GetTrackID(), aTrack->GetParentID());
+  
   // There is already a warning printed in the makeParticleId function if this
   // indicates a failure
-  if (!barcode) {
+  if (!barcodeOpt) {
     return;
   }
+  barcode = *barcodeOpt;
 
-  auto fatrasParticle = convert(*aTrack, *barcode);
+  auto fatrasParticle = convert(*aTrack, barcode);
   SimParticle particle(fatrasParticle, fatrasParticle);
   auto [it, success] = eventStore().particlesInitial.insert(particle);
 

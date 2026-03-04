@@ -124,6 +124,9 @@ class Geant4Simulation final : public Geant4SimulationBase {
     /// Name of the output collection : simulated particles
     std::string outputParticles = "particles_simulated";
 
+    /// Name of the output collection : simulated decay particles
+    std::string outputParticlesDecay = "particles_decay";
+
     /// Name of the output collection : propagation records (debugging)
     std::string outputPropagationSummaries = "propagation_summaries";
 
@@ -152,6 +155,9 @@ class Geant4Simulation final : public Geant4SimulationBase {
     bool keepParticlesWithoutHits = true;
 
     bool recordPropagationSummaries = false;
+
+    /// Optional: output file path for daughter-to-mother particle ID mapping (CSV format)
+    std::optional<std::string> outputDaughterToMotherMap = std::nullopt;
   };
 
   /// Simulation constructor
@@ -180,6 +186,8 @@ class Geant4Simulation final : public Geant4SimulationBase {
 
   WriteDataHandle<SimParticleContainer> m_outputParticles{this,
                                                           "OutputParticles"};
+  WriteDataHandle<SimParticleContainer> m_outputParticlesDecay{
+      this, "OutputParticlesDecay"};
   WriteDataHandle<SimHitContainer> m_outputSimHits{this, "OutputSimHIts"};
 
   WriteDataHandle<PropagationSummaries> m_outputPropagationSummaries{

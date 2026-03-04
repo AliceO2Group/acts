@@ -6,6 +6,7 @@ acts_add_library(
     src/MagneticFieldWrapper.cpp
     src/MaterialPhysicsList.cpp
     src/MaterialSteppingAction.cpp
+    src/DecaySteppingAction.cpp
     src/ParticleTrackingAction.cpp
     src/RegionCreator.cpp
     src/SensitiveSurfaceMapper.cpp

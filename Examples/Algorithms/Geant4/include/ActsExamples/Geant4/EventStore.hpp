@@ -27,6 +27,16 @@ class WhiteBoard;
 
 namespace ActsExamples::Geant4 {
 
+/// Structure to store decay vertex information for daughter particles
+struct DecayVertexInfo {
+  SimBarcode barcode;          // Daughter's barcode
+  SimBarcode parentBarcode;    // Mother/parent particle's barcode
+  Acts::Vector3 position;      // Decay vertex position
+  double time;                 // Decay time
+  Acts::Vector3 momentum;      // Daughter momentum at decay
+  int pdg;                     // Daughter PDG code
+};
+
 /// Common event store for all Geant4 related sub algorithms
 struct EventStore {
  public:
@@ -43,6 +53,9 @@ struct EventStore {
 
   /// Simulated particle collection
   ParticleContainer particlesSimulated;
+
+  /// Particle collection at the moment of decay
+  ParticleContainer particlesDecay;
 
   /// The hits in sensitive detectors
   SimHitContainer::sequence_type hits;
@@ -68,6 +81,14 @@ struct EventStore {
   std::unordered_map<G4int, SimBarcode> trackIdMapping;
   /// Geant4 Track ID subparticle counter (for subparticle indexing)
   std::unordered_map<G4int, std::size_t> trackIdSubparticleCount;
+
+  /// Map from parent track ID to list of decay daughters with their vertex info
+  /// Key: parent Geant4 track ID, Value: vector of daughter decay info
+  std::unordered_map<G4int, std::vector<DecayVertexInfo>> decayVertexMap;
+
+  /// Map from daughter barcode to parent barcode for decay particles
+  /// This allows easy lookup of mother particle for any decay daughter
+  std::unordered_map<SimBarcode, SimBarcode> daughterToMotherMap;
 
   /// Data handles to read particles from the whiteboard
   const ReadDataHandle<SimParticleContainer>* inputParticles{nullptr};

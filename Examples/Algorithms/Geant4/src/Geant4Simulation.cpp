@@ -22,6 +22,7 @@
 #include "ActsExamples/Geant4/MaterialSteppingAction.hpp"
 #include "ActsExamples/Geant4/ParticleKillAction.hpp"
 #include "ActsExamples/Geant4/ParticleTrackingAction.hpp"
+#include "ActsExamples/Geant4/DecaySteppingAction.hpp"
 #include "ActsExamples/Geant4/SensitiveSteppingAction.hpp"
 #include "ActsExamples/Geant4/SensitiveSurfaceMapper.hpp"
 #include "ActsExamples/Geant4/SimParticleTranslation.hpp"
@@ -29,6 +30,7 @@
 
 #include <stdexcept>
 #include <utility>
+#include <fstream>
 
 #include <G4FieldManager.hh>
 #include <G4RunManager.hh>
@@ -230,6 +232,12 @@ Geant4Simulation::Geant4Simulation(const Config& cfg,
     steppingCfg.actions.push_back(std::make_unique<Geant4::ParticleKillAction>(
         particleKillCfg, m_logger->cloneWithSuffix("Killer")));
 
+    // Add decay stepping action to capture daughter particles at decay vertex
+    Geant4::DecaySteppingAction::Config decayCfg;
+    decayCfg.eventStore = m_eventStore.get();
+    steppingCfg.actions.push_back(std::make_unique<Geant4::DecaySteppingAction>(
+        decayCfg, m_logger->cloneWithSuffix("DecayStepping")));
+
     auto sensitiveSteppingAction =
         std::make_unique<Geant4::SensitiveSteppingAction>(
             stepCfg, m_logger->cloneWithSuffix("SensitiveStepping"));
@@ -289,6 +297,7 @@ Geant4Simulation::Geant4Simulation(const Config& cfg,
   m_inputParticles.initialize(cfg.inputParticles);
   m_outputSimHits.initialize(cfg.outputSimHits);
   m_outputParticles.initialize(cfg.outputParticles);
+  m_outputParticlesDecay.initialize(cfg.outputParticlesDecay);
 
   if (cfg.recordPropagationSummaries) {
     m_outputPropagationSummaries.initialize(cfg.outputPropagationSummaries);
@@ -307,6 +316,27 @@ ProcessCode Geant4Simulation::execute(const AlgorithmContext& ctx) const {
   m_outputParticles(
       ctx, SimParticleContainer(eventStore().particlesSimulated.begin(),
                                 eventStore().particlesSimulated.end()));
+
+  m_outputParticlesDecay(
+      ctx, SimParticleContainer(eventStore().particlesDecay.begin(),
+                                eventStore().particlesDecay.end()));
+
+  // Write daughter-to-mother mapping for decay particles
+  if (!eventStore().daughterToMotherMap.empty() && m_cfg.outputDaughterToMotherMap.has_value()) {
+    std::ofstream mapFile(m_cfg.outputDaughterToMotherMap.value(), 
+                         ctx.eventNumber == 0 ? std::ios::out : std::ios::app);
+    if (mapFile.is_open()) {
+      // Write header only for first event
+      if (ctx.eventNumber == 0) {
+        mapFile << "event_id,daughter_id,mother_id\n";
+      }
+      // Write mappings
+      for (const auto& [daughter, mother] : eventStore().daughterToMotherMap) {
+        mapFile << ctx.eventNumber << "," << daughter.value() << "," << mother.value() << "\n";
+      }
+      mapFile.close();
+    }
+  }
 
 #if BOOST_VERSION < 107800
   SimHitContainer container;
