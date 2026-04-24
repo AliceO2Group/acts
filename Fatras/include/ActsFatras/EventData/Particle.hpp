@@ -123,6 +123,20 @@ class Particle {
     m_particleId = barcode;
     return *this;
   }
+  /// Set the particle HF origin (0->none, 4->charm, 5->beauty) 
+  /// @param orig particle HF origin (0->none, 4->charm, 5->beauty) 
+  /// @return Reference to this particle in HepMC file
+  Particle &setHfOrigin(Acts::HfOrigin orig) {
+    m_hfOrigin = orig;
+    return *this;
+  }
+  /// Set the particle ID.
+  /// @param idx Original particle index (to match HepMC file)
+  /// @return Reference to this particle in HepMC file
+  Particle &setOrigParticleIdx(std::uint32_t idx) {
+    m_origParticleIdx = idx;
+    return *this;
+  }
   /// Set the space-time position four-vector.
   /// @param pos4 Four-vector containing spatial position and time
   /// @return Reference to this particle for method chaining

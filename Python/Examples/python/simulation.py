@@ -14,7 +14,6 @@ from acts.examples import (
     CsvVertexWriter,
 )
 import acts.examples.hepmc3
-import acts.examples.geant4
 
 # ROOT might not be available
 try:
