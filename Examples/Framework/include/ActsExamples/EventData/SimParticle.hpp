@@ -10,7 +10,7 @@
 
 #include "ActsExamples/Utilities/GroupBy.hpp"
 #include "ActsFatras/EventData/Particle.hpp"
-#include "ActsFatras/EventData/SimulationOutcome.hpp"
+#include "ActsFatras/EventData/ParticleOutcome.hpp"
 
 #include <boost/container/flat_set.hpp>
 
@@ -74,7 +74,7 @@ class SimParticle final {
   }
 
   /// Set the process type that generated this particle.
-  SimParticle& setProcess(ActsFatras::GenerationProcess proc) {
+  SimParticle& setProcess(ActsFatras::ProcessType proc) {
     initialState().setProcess(proc);
     finalState().setProcess(proc);
     return *this;
@@ -103,13 +103,27 @@ class SimParticle final {
     finalState().setParticleId(barcode);
     return *this;
   }
+  /// Original particle index (to match HepMC).
+  SimParticle& setOrigParticleIdx(std::uint32_t idx) {
+    initialState().setOrigParticleIdx(idx);
+    finalState().setOrigParticleIdx(idx);
+    return *this;
+  }
+  /// Particle HF origin (0->none, 4->charm, 5->beauty)
+  SimParticle& setHfOrigin(Acts::HfOrigin origin) {
+    initialState().setHfOrigin(origin);
+    finalState().setHfOrigin(origin);
+    return *this;
+  }
 
   /// Particle identifier within an event.
   SimBarcode particleId() const { return initialState().particleId(); }
+  /// Original particle index (to match HepMC)
+  std::uint32_t origParticleIdx() const { return initialState().origParticleIdx(); }
+  /// Particle HF origin (0->none, 4->charm, 5->beauty)
+  Acts::HfOrigin hfOrigin() const { return initialState().hfOrigin(); }
   /// Which type of process generated this particle.
-  ActsFatras::GenerationProcess process() const {
-    return initialState().process();
-  }
+  ActsFatras::ProcessType process() const { return initialState().process(); }
   /// PDG particle number that identifies the type.
   Acts::PdgParticle pdg() const { return initialState().pdg(); }
   /// Absolute PDG particle number that identifies the type.
@@ -172,9 +186,7 @@ class SimParticle final {
   std::uint32_t numberOfHits() const { return finalState().numberOfHits(); }
 
   /// Particle outcome.
-  ActsFatras::SimulationOutcome outcome() const {
-    return finalState().outcome();
-  }
+  ActsFatras::ParticleOutcome outcome() const { return finalState().outcome(); }
 
  private:
   SimParticleState m_initial;

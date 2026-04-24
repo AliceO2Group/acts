@@ -10,6 +10,7 @@
 
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
+#include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Propagator/SympyStepper.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
@@ -75,6 +76,8 @@ RootParticleWriter::RootParticleWriter(const RootParticleWriter::Config& cfg,
   m_outputTree->Branch("particle", &m_particle);
   m_outputTree->Branch("generation", &m_generation);
   m_outputTree->Branch("sub_particle", &m_subParticle);
+  m_outputTree->Branch("orig_part_idx", &m_origParticleIdx);
+  m_outputTree->Branch("hf_origin", &m_hfOrigin);
 
   if (m_cfg.writeHelixParameters) {
     m_outputTree->Branch("perigee_d0", &m_perigeeD0);
@@ -122,6 +125,8 @@ ProcessCode RootParticleWriter::writeT(const AlgorithmContext& ctx,
   m_eventId = ctx.eventNumber;
   for (const auto& particle : particles) {
     m_particleHash.push_back(particle.particleId().hash());
+    m_origParticleIdx.push_back(particle.origParticleIdx());
+    m_hfOrigin.push_back(static_cast<std::uint8_t>(particle.hfOrigin()));
     m_particleType.push_back(particle.pdg());
     m_process.push_back(static_cast<std::uint32_t>(particle.process()));
     // position
@@ -357,6 +362,8 @@ ProcessCode RootParticleWriter::writeT(const AlgorithmContext& ctx,
     m_perigeeEta.clear();
     m_perigeePt.clear();
   }
+
+  m_origParticleIdx.clear();
 
   return ProcessCode::SUCCESS;
 }

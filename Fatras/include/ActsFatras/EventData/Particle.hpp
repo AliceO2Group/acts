@@ -12,15 +12,15 @@
 #include "Acts/Definitions/Common.hpp"
 #include "Acts/Definitions/PdgParticle.hpp"
 #include "Acts/Definitions/TrackParametrization.hpp"
-#include "Acts/EventData/BoundTrackParameters.hpp"
 #include "Acts/EventData/ParticleHypothesis.hpp"
+#include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Geometry/GeometryContext.hpp"
 #include "Acts/Surfaces/Surface.hpp"
 #include "Acts/Utilities/MathHelpers.hpp"
 #include "Acts/Utilities/VectorHelpers.hpp"
 #include "ActsFatras/EventData/Barcode.hpp"
-#include "ActsFatras/EventData/GenerationProcess.hpp"
-#include "ActsFatras/EventData/SimulationOutcome.hpp"
+#include "ActsFatras/EventData/ParticleOutcome.hpp"
+#include "ActsFatras/EventData/ProcessType.hpp"
 
 #include <cmath>
 #include <iosfwd>
@@ -78,20 +78,10 @@ class Particle {
     return p;
   }
 
-  /// Kill the particle by setting the outcome to a non-alive status.
-  /// @param outcome The outcome status to set for the killed particle (must not be Alive)
-  /// @throws std::invalid_argument if the provided outcome is Alive
-  void killParticle(SimulationOutcome outcome) {
-    if (outcome == SimulationOutcome::Alive) {
-      throw std::invalid_argument("Cannot kill particle with outcome 'Alive'.");
-    }
-    m_outcome = outcome;
-  }
-
   /// Set the process type that generated this particle.
   /// @param proc Process type that generated this particle
   /// @return Reference to this particle for method chaining
-  Particle &setProcess(GenerationProcess proc) {
+  Particle &setProcess(ProcessType proc) {
     m_process = proc;
     return *this;
   }
@@ -121,6 +111,20 @@ class Particle {
   /// @return Reference to this particle for method chaining
   Particle &setParticleId(Barcode barcode) {
     m_particleId = barcode;
+    return *this;
+  }
+  /// Set the particle HF origin (0->none, 4->charm, 5->beauty) 
+  /// @param orig particle HF origin (0->none, 4->charm, 5->beauty) 
+  /// @return Reference to this particle in HepMC file
+  Particle &setHfOrigin(Acts::HfOrigin orig) {
+    m_hfOrigin = orig;
+    return *this;
+  }
+  /// Set the particle ID.
+  /// @param idx Original particle index (to match HepMC file)
+  /// @return Reference to this particle in HepMC file
+  Particle &setOrigParticleIdx(std::uint32_t idx) {
+    m_origParticleIdx = idx;
     return *this;
   }
   /// Set the space-time position four-vector.
@@ -175,33 +179,22 @@ class Particle {
   /// Set the absolute momentum.
   /// @param absMomentum Absolute momentum magnitude
   /// @return Reference to this particle for method chaining
-  /// @throws std::invalid_argument if absMomentum is negative
   Particle &setAbsoluteMomentum(double absMomentum) {
-    if (absMomentum < 0) {
-      throw std::invalid_argument("Absolute momentum cannot be negative.");
-    }
     m_absMomentum = absMomentum;
     return *this;
   }
 
-  /// Reduce the energy by the given amount. If the energy loss exceeds the
-  /// current energy, the particle is killed with the specified outcome. If
-  /// stopping the particle was not expected (stoppedOutcome is Alive), an
-  /// exception is thrown.
-  /// @param delta The energy loss amount to subtract from the current energy
-  /// @param stoppedOutcome The outcome to set if the energy loss exceeds the current energy
+  /// Change the energy by the given amount.
+  ///
+  /// Energy loss corresponds to a negative change. If the updated energy
+  /// would result in an unphysical value, the particle is put to rest, i.e.
+  /// its absolute momentum is set to zero.
+  /// @param delta Energy change (negative for energy loss)
   /// @return Reference to this particle for method chaining
-  /// @throws std::invalid_argument if the energy loss exceeds the current energy and stoppedOutcome is Alive
-  Particle &loseEnergy(double delta, SimulationOutcome stoppedOutcome =
-                                         SimulationOutcome::Alive) {
-    const double newEnergy = energy() - delta;
+  Particle &correctEnergy(double delta) {
+    const auto newEnergy = std::hypot(m_mass, m_absMomentum) + delta;
     if (newEnergy <= m_mass) {
-      if (stoppedOutcome == SimulationOutcome::Alive) {
-        throw std::invalid_argument(
-            "Energy loss cannot exceed the current energy of the particle if "
-            "the particle is to remain alive.");
-      }
-      killParticle(stoppedOutcome);
+      m_absMomentum = 0.;
     } else {
       m_absMomentum = Acts::fastCathetus(newEnergy, m_mass);
     }
@@ -211,9 +204,15 @@ class Particle {
   /// Particle identifier within an event.
   /// @return The unique particle identifier barcode
   Barcode particleId() const { return m_particleId; }
+  /// Original particle index (to match HepMC) 
+  /// @return The particle index
+  std::uint32_t origParticleIdx() const { return m_origParticleIdx; }
+  /// Particle HF origin (0->none, 4->charm, 5->beauty) 
+  /// @return The particle index
+  Acts::HfOrigin hfOrigin() const { return m_hfOrigin; }
   /// Which type of process generated this particle.
   /// @return The process type that generated this particle
-  GenerationProcess process() const { return m_process; }
+  ProcessType process() const { return m_process; }
   /// PDG particle number that identifies the type.
   /// @return The PDG particle identifier
   Acts::PdgParticle pdg() const { return m_pdg; }
@@ -237,7 +236,7 @@ class Particle {
   Acts::ParticleHypothesis hypothesis() const {
     return Acts::ParticleHypothesis(
         absolutePdg(), static_cast<float>(mass()),
-        Acts::ChargeHypothesis{static_cast<float>(absoluteCharge())});
+        Acts::AnyCharge{static_cast<float>(absoluteCharge())});
   }
   /// Particl qOverP.
   /// @return The charge over momentum ratio
@@ -291,7 +290,7 @@ class Particle {
 
   /// Check if the particle is alive, i.e. is not at rest.
   /// @return True if particle has non-zero momentum, false otherwise
-  bool isAlive() const { return m_outcome == SimulationOutcome::Alive; }
+  bool isAlive() const { return 0. < m_absMomentum; }
 
   /// Check if this is a secondary particle.
   /// @return True if particle is a secondary (has non-zero vertex secondary, generation, or sub-particle), false otherwise
@@ -391,41 +390,45 @@ class Particle {
   ///
   /// @param outcome outcome code
   /// @return Reference to this particle for method chaining
-  Particle &setOutcome(SimulationOutcome outcome) {
+  Particle &setOutcome(ParticleOutcome outcome) {
     m_outcome = outcome;
     return *this;
   }
 
   /// Particle outcome.
   /// @return The outcome status of this particle
-  SimulationOutcome outcome() const { return m_outcome; }
+  ParticleOutcome outcome() const { return m_outcome; }
 
  private:
   // identity, i.e. things that do not change over the particle lifetime.
   /// Particle identifier within the event.
   Barcode m_particleId;
   /// Process type specifier.
-  GenerationProcess m_process = GenerationProcess::eUndefined;
+  ProcessType m_process = ProcessType::eUndefined;
   /// PDG particle number.
   Acts::PdgParticle m_pdg = Acts::PdgParticle::eInvalid;
   // Particle charge and mass.
-  double m_charge = 0;
-  double m_mass = 0;
+  double m_charge = 0.;
+  double m_mass = 0.;
   // kinematics, i.e. things that change over the particle lifetime.
   Acts::Vector3 m_direction = Acts::Vector3::UnitZ();
-  double m_absMomentum = 0;
+  double m_absMomentum = 0.;
   Acts::Vector4 m_position4 = Acts::Vector4::Zero();
   /// proper time in the particle rest frame
-  double m_properTime = 0;
+  double m_properTime = 0.;
   // accumulated material
-  double m_pathInX0 = 0;
-  double m_pathInL0 = 0;
+  double m_pathInX0 = 0.;
+  double m_pathInL0 = 0.;
   /// number of hits
   std::uint32_t m_numberOfHits = 0;
+  /// particle index to match the HepMC file
+  std::uint32_t m_origParticleIdx = 0;
+  /// particle origin (0->LF, 4->charm, 5->beauty)
+  Acts::HfOrigin m_hfOrigin = Acts::HfOrigin::None;
   /// reference surface
   const Acts::Surface *m_referenceSurface{nullptr};
   /// outcome
-  SimulationOutcome m_outcome = SimulationOutcome::Alive;
+  ParticleOutcome m_outcome = ParticleOutcome::Alive;
 };
 
 /// Print particle to output stream
