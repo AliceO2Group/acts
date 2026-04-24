@@ -10,7 +10,6 @@
 
 #include "Acts/Definitions/TrackParametrization.hpp"
 #include "Acts/Definitions/Units.hpp"
-#include "Acts/EventData/TrackParameters.hpp"
 #include "Acts/Propagator/Propagator.hpp"
 #include "Acts/Propagator/SympyStepper.hpp"
 #include "Acts/Surfaces/PerigeeSurface.hpp"
@@ -364,6 +363,7 @@ ProcessCode RootParticleWriter::writeT(const AlgorithmContext& ctx,
   }
 
   m_origParticleIdx.clear();
+  m_hfOrigin.clear();
 
   return ProcessCode::SUCCESS;
 }
