@@ -90,8 +90,8 @@ function(acts_code_generation)
         PYTHON_VERSION
         OUTPUT
         RESULT_INCLUDE_DIR
-    )
-    set(multiValueArgs DEPENDS WITH_REQUIREMENTS WITH)
+        )
+    set(multiValueArgs DEPENDS WITH_REQUIREMENTS WITH PYTHON_ARGS)
     cmake_parse_arguments(
         PARSE_ARGV 0
         ARGS
@@ -187,7 +187,7 @@ function(acts_code_generation)
                 UV_PYTHON_INSTALL_DIR=${ACTS_CODEGEN_TMPDIR}/python_install_dir
                 ${_uv_environment} ${uv_exe} run --quiet --python
                 ${ARGS_PYTHON_VERSION} --no-project ${_arg_isolated}
-                ${_with_args} ${ARGS_PYTHON} ${_output_file}
+                ${_with_args} ${ARGS_PYTHON} ${ARGS_PYTHON_ARGS} ${_output_file}
             DEPENDS ${_depends}
             COMMENT "Generating ${ARGS_OUTPUT}"
             VERBATIM
@@ -199,7 +199,7 @@ function(acts_code_generation)
             OUTPUT ${_output_file}
             COMMAND
                 ${CMAKE_BINARY_DIR}/codegen_venv/bin/python ${ARGS_PYTHON}
-                ${_output_file}
+                ${ARGS_PYTHON_ARGS} ${_output_file}
             DEPENDS ${_depends}
             COMMENT "Generating ${ARGS_OUTPUT}"
             VERBATIM
