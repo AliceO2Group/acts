@@ -156,6 +156,7 @@ set(ACTS_GPERF_INSTALL_DIR "" CACHE STRING "Hint to help find gperf if profiling
 
 option(ACTS_ENABLE_LOG_FAILURE_THRESHOLD "Enable failing on log messages with level above certain threshold" OFF)
 option(ACTS_COMPILE_HEADERS "Generate targets to compile header files" ON)
+set(ACTS_ADDITIONAL_PARTICLES_CSV "" CACHE FILEPATH "CSV filename with additional particles to include in the particle data table. Format of the file: name,pdgid,mass,charge,spin")
 # gersemi: on
 
 # Removed option: warn and drop it from the cache. Setting it used to imply
