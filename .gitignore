@@ -24,6 +24,7 @@ x86_64-slc6-gcc49-opt
 *.root
 #csv output
 *.csv
+!Fatras/scripts/additional_particles.csv
 *.pyc
 /cmake_cmd
 /cleanup.sh

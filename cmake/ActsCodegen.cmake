@@ -247,6 +247,13 @@ function(acts_code_generation)
     )
     _acts_codegen_manifest_paths(ARGS_WITH "${_unit}" with)
 
+    # Optional: data files the generator reads, so that editing them reruns it
+    set(ARGS_INPUTS "")
+    string(JSON _inputs_type ERROR_VARIABLE _inputs_error TYPE "${_unit}" inputs)
+    if(NOT _inputs_error)
+        _acts_codegen_manifest_paths(ARGS_INPUTS "${_unit}" inputs)
+    endif()
+
     get_filename_component(_output_name ${ARGS_OUTPUT} NAME)
 
     string(SHA1 _output_hash ${_output_name})
@@ -301,7 +308,7 @@ function(acts_code_generation)
             set(_arg_isolated "--isolated")
         endif()
 
-        set(_depends "${ARGS_PYTHON}")
+        set(_depends "${ARGS_PYTHON}" ${ARGS_INPUTS})
         set(_with_args "")
         foreach(_requirement ${ARGS_WITH_REQUIREMENTS})
             list(APPEND _depends ${_requirement})
