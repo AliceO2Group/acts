@@ -123,7 +123,7 @@ def _getTruthJetKWargs(config: TruthJetConfig) -> dict:
     phiConfig=PhiConfig,
     particleConfig=ParticleConfig,
 )
-def addParticleGun(
+def addParticleGunWithPileup(
     s: acts.examples.Sequencer,
     outputDirCsv: Optional[Union[Path, str]] = None,
     outputDirRoot: Optional[Union[Path, str]] = None,
@@ -136,6 +136,13 @@ def addParticleGun(
     printParticles: bool = False,
     rnd: Optional[RandomNumbers] = None,
     logLevel: Optional[acts.logging.Level] = None,
+    npileup: int = 1,
+    beam: Optional[
+        Union[acts.PdgParticle, Iterable]
+    ] = None,  # default: acts.PdgParticle.eProton
+    cmsEnergy: Optional[float] = None,  # default: 14 * acts.UnitConstants.TeV
+    pileupProcess: Iterable = ["SoftQCD:all = on"],
+
 ) -> None:
     """This function steers the particle generation using the particle gun
 
@@ -169,34 +176,54 @@ def addParticleGun(
 
     rnd = rnd or RandomNumbers(seed=228)
 
-    evGen = EventGenerator(
-        level=customLogLevel(),
-        generators=[
-            EventGenerator.Generator(
-                multiplicity=FixedMultiplicityGenerator(n=multiplicity),
-                vertex=vtxGen
-                or acts.examples.GaussianVertexGenerator(
-                    mean=acts.Vector4(0, 0, 0, 0),
-                    stddev=acts.Vector4(0, 0, 0, 0),
-                ),
-                particles=acts.examples.ParametricParticleGenerator(
+    generators = []
+
+    generators.append(EventGenerator.Generator(
+        multiplicity=FixedMultiplicityGenerator(n=multiplicity),
+        vertex=vtxGen
+        or acts.examples.GaussianVertexGenerator(
+            mean=acts.Vector4(0, 0, 0, 0),
+            stddev=acts.Vector4(0, 0, 0, 0),
+        ),
+        particles=acts.examples.ParametricParticleGenerator(
+            **acts.examples.defaultKWArgs(
+                p=(momentumConfig.min, momentumConfig.max),
+                pTransverse=momentumConfig.transverse,
+                pLogUniform=momentumConfig.logUniform,
+                eta=(etaConfig.min, etaConfig.max),
+                phi=(phiConfig.min, phiConfig.max),
+                etaUniform=etaConfig.uniform,
+                numParticles=particleConfig.num,
+                pdg=particleConfig.pdg,
+                randomizeCharge=particleConfig.randomizeCharge,
+                charge=particleConfig.charge,
+                mass=particleConfig.mass,
+                # Merging particle gun vertices does not make sense
+            )
+        ),
+    ))
+
+    if npileup > 0:
+        import acts.examples.pythia8
+        generators.append(
+            acts.examples.EventGenerator.Generator(
+                multiplicity=acts.examples.FixedMultiplicityGenerator(n=npileup),
+                vertex=vtxGen,
+                particles=acts.examples.pythia8.Pythia8Generator(
+                    level=customLogLevel(),
                     **acts.examples.defaultKWArgs(
-                        p=(momentumConfig.min, momentumConfig.max),
-                        pTransverse=momentumConfig.transverse,
-                        pLogUniform=momentumConfig.logUniform,
-                        eta=(etaConfig.min, etaConfig.max),
-                        phi=(phiConfig.min, phiConfig.max),
-                        etaUniform=etaConfig.uniform,
-                        numParticles=particleConfig.num,
-                        pdg=particleConfig.pdg,
-                        randomizeCharge=particleConfig.randomizeCharge,
-                        charge=particleConfig.charge,
-                        mass=particleConfig.mass,
-                        # Merging particle gun vertices does not make sense
-                    )
+                        pdgBeam0=beam[0],
+                        pdgBeam1=beam[1],
+                        cmsEnergy=cmsEnergy,
+                        settings=pileupProcess,
+                    ),
                 ),
             )
-        ],
+        )
+
+    evGen = EventGenerator(
+        level=customLogLevel(),
+        generators=generators,
         randomNumbers=rnd,
         outputEvent="particle_gun_event",
     )
@@ -265,6 +292,237 @@ def addParticleGun(
         )
 
     return s
+
+def addParticleGunWithPileup(
+    s: acts.examples.Sequencer,
+    outputDirCsv: Optional[Union[Path, str]] = None,
+    outputDirRoot: Optional[Union[Path, str]] = None,
+    momentumConfig: MomentumConfig = MomentumConfig(),
+    etaConfig: EtaConfig = EtaConfig(),
+    phiConfig: PhiConfig = PhiConfig(),
+    particleConfig: ParticleConfig = ParticleConfig(),
+    multiplicity: int = 1,
+    vtxGen: Optional[EventGenerator.VertexGenerator] = None,
+    printParticles: bool = False,
+    rnd: Optional[RandomNumbers] = None,
+    logLevel: Optional[acts.logging.Level] = None,
+    npileup: int = 1,
+    beam: Optional[
+        Union[acts.PdgParticle, Iterable]
+    ] = None,  # default: acts.PdgParticle.eProton
+    cmsEnergy: Optional[float] = None,  # default: 14 * acts.UnitConstants.TeV
+    pileupProcess: Iterable = ["SoftQCD:all = on"],
+
+) -> None:
+    """This function steers the particle generation using the particle gun
+
+    Parameters
+    ----------
+    s: Sequencer
+        the sequencer module to which we add the particle gun steps (returned from addParticleGun)
+    outputDirCsv : Path|str, path, None
+        the output folder for the Csv output, None triggers no output
+    outputDirRoot : Path|str, path, None
+        the output folder for the Root output, None triggers no output
+    momentumConfig : MomentumConfig(min, max, transverse, logUniform)
+        momentum configuration: minimum momentum, maximum momentum, transverse, log-uniform
+    etaConfig : EtaConfig(min, max, uniform)
+        pseudorapidity configuration: eta min, eta max, uniform
+    phiConfig : PhiConfig(min, max)
+        azimuthal angle configuration: phi min, phi max
+    particleConfig : ParticleConfig(num, pdg, randomizeCharge, charge, mass)
+        particle configuration: number of particles, particle type, charge flip
+    multiplicity : int, 1
+        number of generated vertices
+    vtxGen : VertexGenerator, None
+        vertex generator module
+    printParticles : bool, False
+        print generated particles
+    rnd : RandomNumbers, None
+        random number generator
+    """
+
+    customLogLevel = acts.examples.defaultLogging(s, logLevel)
+
+    rnd = rnd or RandomNumbers(seed=228)
+
+    generators = []
+
+    generators.append(            EventGenerator.Generator(
+                multiplicity=FixedMultiplicityGenerator(n=multiplicity),
+                vertex=vtxGen
+                or acts.examples.GaussianVertexGenerator(
+                    mean=acts.Vector4(0, 0, 0, 0),
+                    stddev=acts.Vector4(0, 0, 0, 0),
+                ),
+                particles=acts.examples.ParametricParticleGenerator(
+                    **acts.examples.defaultKWArgs(
+                        p=(momentumConfig.min, momentumConfig.max),
+                        pTransverse=momentumConfig.transverse,
+                        pLogUniform=momentumConfig.logUniform,
+                        eta=(etaConfig.min, etaConfig.max),
+                        phi=(phiConfig.min, phiConfig.max),
+                        etaUniform=etaConfig.uniform,
+                        numParticles=particleConfig.num,
+                        pdg=particleConfig.pdg,
+                        randomizeCharge=particleConfig.randomizeCharge,
+                        charge=particleConfig.charge,
+                        mass=particleConfig.mass,
+                        # Merging particle gun vertices does not make sense
+                    )
+                ),
+            ))
+    
+    if npileup > 0:
+        import acts.examples.pythia8
+        generators.append(
+            acts.examples.EventGenerator.Generator(
+                multiplicity=acts.examples.FixedMultiplicityGenerator(n=npileup),
+                vertex=vtxGen,
+                particles=acts.examples.pythia8.Pythia8Generator(
+                    level=customLogLevel(),
+                    **acts.examples.defaultKWArgs(
+                        pdgBeam0=beam[0],
+                        pdgBeam1=beam[1],
+                        cmsEnergy=cmsEnergy,
+                        settings=pileupProcess,
+                    ),
+                ),
+            )
+        )
+
+
+
+    evGen = EventGenerator(
+        level=customLogLevel(),
+        generators=generators,
+        randomNumbers=rnd,
+        outputEvent="particle_gun_event",
+    )
+    s.addReader(evGen)
+
+    hepmc3Converter = acts.examples.hepmc3.HepMC3InputConverter(
+        level=customLogLevel(),
+        inputEvent=evGen.config.outputEvent,
+        outputParticles="particles_generated",
+        outputVertices="vertices_generated",
+        mergePrimaries=False
+    )
+    s.addAlgorithm(hepmc3Converter)
+
+    s.addWhiteboardAlias("particles", hepmc3Converter.config.outputParticles)
+    s.addWhiteboardAlias("vertices_truth", hepmc3Converter.config.outputVertices)
+
+    s.addWhiteboardAlias(
+        "particles_generated_selected", hepmc3Converter.config.outputParticles
+    )
+
+    if printParticles:
+        s.addAlgorithm(
+            ParticlesPrinter(
+                level=customLogLevel(),
+                inputParticles=hepmc3Converter.config.outputParticles,
+            )
+        )
+
+    if outputDirCsv is not None:
+        outputDirCsv = Path(outputDirCsv)
+        if not outputDirCsv.exists():
+            outputDirCsv.mkdir()
+
+        s.addWriter(
+            CsvParticleWriter(
+                level=customLogLevel(),
+                inputParticles=hepmc3Converter.config.outputParticles,
+                outputDir=str(outputDirCsv),
+                outputStem="particles",
+            )
+        )
+
+    if outputDirRoot is not None:
+        assert (
+            ACTS_EXAMPLES_ROOT_AVAILABLE
+        ), "ROOT output requested but ROOT is not available"
+        outputDirRoot = Path(outputDirRoot)
+        if not outputDirRoot.exists():
+            outputDirRoot.mkdir()
+
+        s.addWriter(
+            RootParticleWriter(
+                level=customLogLevel(),
+                inputParticles=hepmc3Converter.config.outputParticles,
+                filePath=str(outputDirRoot / "particles.root"),
+            )
+        )
+
+        s.addWriter(
+            RootVertexWriter(
+                level=customLogLevel(),
+                inputVertices=hepmc3Converter.config.outputVertices,
+                filePath=str(outputDirRoot / "vertices.root"),
+            )
+        )
+
+    return s
+
+
+def addParticleGun(
+    s: acts.examples.Sequencer,
+    outputDirCsv: Optional[Union[Path, str]] = None,
+    outputDirRoot: Optional[Union[Path, str]] = None,
+    momentumConfig: MomentumConfig = MomentumConfig(),
+    etaConfig: EtaConfig = EtaConfig(),
+    phiConfig: PhiConfig = PhiConfig(),
+    particleConfig: ParticleConfig = ParticleConfig(),
+    multiplicity: int = 1,
+    vtxGen: Optional[EventGenerator.VertexGenerator] = None,
+    printParticles: bool = False,
+    rnd: Optional[RandomNumbers] = None,
+    logLevel: Optional[acts.logging.Level] = None,
+) -> None:
+    """This function steers the particle generation using the particle gun
+
+    Parameters
+    ----------
+    s: Sequencer
+        the sequencer module to which we add the particle gun steps (returned from addParticleGun)
+    outputDirCsv : Path|str, path, None
+        the output folder for the Csv output, None triggers no output
+    outputDirRoot : Path|str, path, None
+        the output folder for the Root output, None triggers no output
+    momentumConfig : MomentumConfig(min, max, transverse, logUniform)
+        momentum configuration: minimum momentum, maximum momentum, transverse, log-uniform
+    etaConfig : EtaConfig(min, max, uniform)
+        pseudorapidity configuration: eta min, eta max, uniform
+    phiConfig : PhiConfig(min, max)
+        azimuthal angle configuration: phi min, phi max
+    particleConfig : ParticleConfig(num, pdg, randomizeCharge, charge, mass)
+        particle configuration: number of particles, particle type, charge flip
+    multiplicity : int, 1
+        number of generated vertices
+    vtxGen : VertexGenerator, None
+        vertex generator module
+    printParticles : bool, False
+        print generated particles
+    rnd : RandomNumbers, None
+        random number generator
+    """
+
+    return addParticleGunWithPileup(
+        s=s,
+        outputDirCsv=outputDirCsv,
+        outputDirRoot=outputDirRoot,
+        momentumConfig=momentumConfig,
+        etaConfig=etaConfig,
+        phiConfig=phiConfig,
+        particleConfig=particleConfig,
+        multiplicity=multiplicity,
+        vtxGen=vtxGen,
+        printParticles=printParticles,
+        rnd=rnd,
+        logLevel=logLevel,
+        npileup=-1,
+    )
 
 
 def addPythia8(
