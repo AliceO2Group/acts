@@ -374,12 +374,12 @@ def addParticleGunWithPileup(
             ))
     
     if npileup > 0:
-        import acts.examples.pythia8
+        from acts.examples import pythia8
         generators.append(
             acts.examples.EventGenerator.Generator(
                 multiplicity=acts.examples.FixedMultiplicityGenerator(n=npileup),
                 vertex=vtxGen,
-                particles=acts.examples.pythia8.Pythia8Generator(
+                particles=pythia8.Pythia8Generator(
                     level=customLogLevel(),
                     **acts.examples.defaultKWArgs(
                         pdgBeam0=beam[0],
