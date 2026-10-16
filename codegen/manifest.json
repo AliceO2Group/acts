@@ -15,6 +15,8 @@
         "                    include root added to the consuming target",
         "  with_requirements requirement files to install before running the script",
         "  with              packages to install before running the script",
+        "  inputs            optional: data files the script reads; editing them",
+        "                    reruns the script",
         "  isolated          run the generator without inheriting the ambient",
         "                    environment's packages",
         "  python_version    interpreter to run the generator with"
@@ -23,6 +25,9 @@
         "Core/src/Definitions/ParticleDataTable.hpp": {
             "script": "Fatras/scripts/generate_particle_data_table.py",
             "output": "ParticleDataTable.hpp",
+            "inputs": [
+                "Fatras/scripts/additional_particles.csv"
+            ],
             "with_requirements": [],
             "with": [],
             "isolated": false,
