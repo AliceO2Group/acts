@@ -40,54 +40,133 @@ CODE_HEADER = """\
 
 """
 
-# Only needed if the user wants to add additional particles at runtime from a CSV file, otherwise it can be ignored
+# Default list of additional particles, e.g. BSM particles that are not in the
+# PDG tables of scikit-hep/particle. Their PDG IDs and names are compiled in;
+# their masses and charges can be overridden at runtime, see CSV_FILE_READER.
+DEFAULT_ADDITIONAL_PARTICLES_CSV = Path(__file__).parent / "additional_particles.csv"
+
+# Only emitted if there are additional particles. The masses and charges of the
+# additional particles are compiled in as defaults, and can be replaced at
+# runtime (e.g. to scan a mass range without rebuilding) by a CSV file found as
+#   1. $ACTS_ADDITIONAL_PARTICLES_CSV, if set (it is an error if unreadable)
+#   2. $ACTS_ROOT/share/Acts/additional_particles.csv, if it exists
+# The file has the same format as the build-time CSV. Particles are matched by
+# PDG ID, so it only needs to contain the particles whose values change.
 CSV_FILE_READER = """
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
-inline float readCsvFloatAt(const std::string& csvPath, // path to the CSV file
-                            int lineIndex,              // line number to read, one-based
-                            int columnIndex) {          // column number to read, one-based
-  if (lineIndex == 0 || columnIndex == 0) {
-    throw std::invalid_argument("Line and column numbers must be one-based and greater than 0");
-  }
+struct AdditionalParticleValues {
+  float charge;  // in e
+  float mass;    // in GeV
+};
 
+inline std::map<std::int32_t, AdditionalParticleValues> readAdditionalParticlesCsv(
+    const std::string& csvPath,
+    const std::map<std::int32_t, AdditionalParticleValues>& known) {
   std::ifstream input(csvPath);
   if (!input.is_open()) {
-    throw std::runtime_error("Failed to open CSV file");
+    throw std::runtime_error("Failed to open additional particles CSV file " + csvPath);
   }
 
-  std::string targetLine;
-  for (int line = 1; line <= lineIndex; ++line) {
-    if (!std::getline(input, targetLine)) {
-      throw std::runtime_error("Failed to read line from CSV file");
+  std::map<std::int32_t, AdditionalParticleValues> values;
+  std::string line;
+  for (int lineNumber = 1; std::getline(input, line); ++lineNumber) {
+    const auto first = line.find_first_not_of(" \\t\\r");
+    if (first == std::string::npos || line[first] == '#') {
+      continue;  // skip empty lines and comments
     }
-  }
 
-  std::vector<std::string> columns;
-  {
-    std::stringstream lineStream(targetLine);
+    std::vector<std::string> columns;
+    std::stringstream lineStream(line);
     std::string value;
     while (std::getline(lineStream, value, ',')) {
       columns.push_back(value);
     }
-  }
-  if (static_cast<std::size_t>(columnIndex) > columns.size()) {
-    throw std::invalid_argument("Column number is out of bounds");
-  }
 
-  try {
-    return std::stof(columns[columnIndex - 1]);
-  } catch (...) {
-    std::string errorMsg = "Failed to convert column value to float: " + columns[columnIndex - 1] + " at line " + std::to_string(lineIndex) + " column " + std::to_string(columnIndex) + " in file " + csvPath;
-    throw std::runtime_error(errorMsg.c_str());
+    const std::string where = " at line " + std::to_string(lineNumber) + " in file " + csvPath;
+    if (columns.size() != 4) {
+      throw std::runtime_error("Expected 4 columns (ID,Name,Mass,Charge)" + where);
+    }
+
+    std::int32_t pdg = 0;
+    AdditionalParticleValues particle{};
+    try {
+      pdg = std::stoi(columns[0]);
+      particle.mass = std::stof(columns[2]) / 1000.f;    // MeV -> GeV
+      particle.charge = std::stof(columns[3]) / 3.f;     // three-charge -> e
+    } catch (...) {
+      throw std::runtime_error("Failed to convert ID, mass or charge to a number" + where);
+    }
+    if (!known.contains(pdg)) {
+      throw std::runtime_error(
+          "PDG ID " + columns[0] + where +
+          " is not one of the additional particles ACTS was built with; "
+          "add it to Fatras/scripts/additional_particles.csv and rebuild");
+    }
+    values[pdg] = particle;
   }
-  return 0.f;
+  return values;
 }
 
 """
+
+# Emitted after the compiled-in defaults (additionalParticlesDefaults).
+ADDITIONAL_PARTICLES_LOOKUP = """
+inline const std::map<std::int32_t, AdditionalParticleValues>& additionalParticles() {
+  static const std::map<std::int32_t, AdditionalParticleValues> values = [] {
+    std::map<std::int32_t, AdditionalParticleValues> result = additionalParticlesDefaults();
+
+    std::string csvPath;
+    if (const char* env = std::getenv("ACTS_ADDITIONAL_PARTICLES_CSV"); env != nullptr && *env != '\\0') {
+      csvPath = env;
+    } else if (const char* root = std::getenv("ACTS_ROOT"); root != nullptr && *root != '\\0') {
+      const std::string installed = std::string(root) + "/share/Acts/additional_particles.csv";
+      if (std::ifstream(installed).good()) {
+        csvPath = installed;
+      }
+    }
+
+    if (!csvPath.empty()) {
+      for (const auto& [pdg, particle] : readAdditionalParticlesCsv(csvPath, result)) {
+        result[pdg] = particle;
+      }
+    }
+    return result;
+  }();
+  return values;
+}
+
+"""
+
+
+def read_additional_particles(csv_path):
+    """
+    Read the additional particles CSV. Returns a list of
+    ``(pdgid, name, mass_MeV, three_charge)`` tuples.
+    """
+    particles = []
+    with open(csv_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue  # skip empty lines and comments
+            parts = line.split(",")
+            if len(parts) != 4:
+                print("Warning: Skipping invalid line in additional particles CSV:", line, file=sys.stderr)
+                continue
+            pdgid_str, name, mass_str, charge_str = parts
+            try:
+                particles.append((int(pdgid_str), name, float(mass_str), float(charge_str)))
+            except ValueError:
+                print(
+                    "Warning: Skipping line with invalid number format in additional particles CSV: ", line,
+                    file=sys.stderr)
+    return particles
 
 
 def convert_mass_to_GeV(mass_MeV):
@@ -112,7 +191,7 @@ def identity(v):
     return v
 
 
-def generate_code(additional_particles_csv: str | None = None):
+def generate_code(additional_particles_csv: Path | None = DEFAULT_ADDITIONAL_PARTICLES_CSV):
     """
     Generate C++ source text containing particle lookup maps.
 
@@ -120,15 +199,16 @@ def generate_code(additional_particles_csv: str | None = None):
     ``particle.Particle.all()`` and creates one ``std::map`` per property:
     charge, mass, and name, keyed by signed PDG ID.
 
-    If ``additional_particles_csv`` is provided, the function also appends
-    extra entries from that CSV to each generated map and emits a helper C++
-    CSV reader. Those extra values are read from the CSV file at runtime in the
-    generated C++ code.
+    If ``additional_particles_csv`` exists, the function also appends the
+    particles from that CSV to each generated map. Their names are fixed at
+    build time; their masses and charges are compiled in as defaults that can
+    be overridden at runtime, see ``CSV_FILE_READER``.
 
     Parameters
     ----------
     additional_particles_csv : str | None, optional
-        Path to a CSV file containing additional particles.
+        Path to a CSV file containing additional particles. Defaults to
+        ``additional_particles.csv`` next to this script.
 
         Expected row format (no header required):
             ``ID,Name,Mass,Charge``
@@ -150,8 +230,27 @@ def generate_code(additional_particles_csv: str | None = None):
 
     lines = CODE_HEADER.splitlines()
 
-    if additional_particles_csv is not None:
+    additional_particles = []
+    if additional_particles_csv is not None and Path(additional_particles_csv).exists():
+        additional_particles = read_additional_particles(additional_particles_csv)
+
+    if additional_particles:
         lines.append(CSV_FILE_READER)
+        lines.append(
+            "inline const std::map<std::int32_t, AdditionalParticleValues>& additionalParticlesDefaults() {"
+        )
+        lines.append(
+            "static const std::map<std::int32_t, AdditionalParticleValues> map = {"
+        )
+        for pdgid, name, mass, three_charge in additional_particles:
+            lines.append(f"// {name}")
+            lines.append(
+                f"{{ {pdgid}, {{ {convert_charge_to_e(three_charge)}f, {convert_mass_to_GeV(mass)}f }} }},"
+            )
+        lines.append("};")
+        lines.append("return map;")
+        lines.append("}")
+        lines.append(ADDITIONAL_PARTICLES_LOOKUP)
 
     lines.append(
         f"static constexpr std::uint32_t kParticlesCount = {len(Particle.all())}u;"
@@ -186,43 +285,18 @@ def generate_code(additional_particles_csv: str | None = None):
                     f"{{ {int(p.pdgid)}, {value_format.format(transform(value))} }},"
                 )
 
-        # If additional particles are provided, add them to the table that is dynamically generated at runtime
-        if additional_particles_csv is not None:
-            with open(additional_particles_csv, "r", encoding="utf-8") as f:
-                for line_number, line in enumerate(f, start=1):
-                    line = line.strip()
-                    if not line or line.startswith("#"):
-                        continue  # skip empty lines and comments
-                    parts = line.split(",")
-                    if len(parts) != 4:
-                        print("Warning: Skipping invalid line in additional particles CSV:", line, file=sys.stderr)
-                        continue
-                    pdgid_str, name, mass_str, charge_str = parts
-                    try:
-                        pdgid = int(pdgid_str)
-                        float(mass_str)
-                        float(charge_str)
-                    except ValueError:
-                        print(
-                            "Warning: Skipping line with invalid number format in additional particles CSV: ", line,
-                            file=sys.stderr)
-                        continue
-                    lines.append(f"// {name}")
-
-                    if variable_name == "name":
-                        lines.append(
-                            f"{{ {pdgid}, {value_format.format(name)} }},"
-                        )
-                    elif variable_name == "mass":
-                        lines.append(
-                            f"{{ {pdgid}, readCsvFloatAt(\"{additional_particles_csv}\", {line_number}, 3) }},"
-                        )
-                    elif variable_name == "three_charge":
-                        lines.append(
-                            f"{{ {pdgid}, readCsvFloatAt(\"{additional_particles_csv}\", {line_number}, 4) }},"
-                        )
-                    else:
-                        raise ValueError(f"Unsupported variable name: {variable_name}")
+        # Masses and charges of additional particles are looked up at runtime,
+        # names are fixed at build time
+        for pdgid, name, _, _ in additional_particles:
+            lines.append(f"// {name}")
+            if variable_name == "name":
+                lines.append(f"{{ {pdgid}, {value_format.format(name)} }},")
+            elif variable_name == "mass":
+                lines.append(f"{{ {pdgid}, additionalParticles().at({pdgid}).mass }},")
+            elif variable_name == "three_charge":
+                lines.append(f"{{ {pdgid}, additionalParticles().at({pdgid}).charge }},")
+            else:
+                raise ValueError(f"Unsupported variable name: {variable_name}")
 
         lines.append("};")
         lines.append("return map;")
@@ -259,7 +333,12 @@ if __name__ == "__main__":
     p.add_argument(
         "--format", action="store_true", help="Run clang-format on the output."
     )
-    p.add_argument("--additional-particles", type=Path, help="CSV file with additional particles.", default=None)
+    p.add_argument(
+        "--additional-particles",
+        type=Path,
+        help="CSV file with additional particles.",
+        default=DEFAULT_ADDITIONAL_PARTICLES_CSV,
+    )
 
     args = p.parse_args()
     if args.output is None:

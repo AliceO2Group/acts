@@ -1,0 +1,14 @@
+# Additional particles that are not in the PDG tables of scikit-hep/particle.
+#
+# Format: ID,Name,Mass,Charge
+#   ID     signed PDG ID
+#   Name   particle name
+#   Mass   in MeV
+#   Charge in units of e/3
+#
+# PDG IDs and names are fixed at build time: adding or removing a particle
+# requires a rebuild. Masses and charges given here are the defaults; they can
+# be changed at runtime without rebuilding by pointing the environment variable
+# ACTS_ADDITIONAL_PARTICLES_CSV to a CSV file in the same format, which only
+# needs to list the particles whose values change.
+1000022,n1,100000,0
