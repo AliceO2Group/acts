@@ -41,11 +41,11 @@ def runMaterialValidation(
 
     addParticleGun(
         s,
-        ParticleConfig(
+        particleConfig=ParticleConfig(
             num=tracksPerEvent, pdg=acts.PdgParticle.eMuon, randomizeCharge=True
         ),
-        EtaConfig(*etaRange),
-        PhiConfig(*phiRange),
+        etaConfig=EtaConfig(*etaRange),
+        phiConfig=PhiConfig(*phiRange),
         rnd=rnd,
     )
 
