@@ -438,6 +438,9 @@ ProcessCode HepMC3Reader::readLogicalEvent(
         }
         return ABORT;
       }
+      // The reader takes the units from the file (e.g. `U MEV MM`), while
+      // everything downstream assumes GeV and mm: convert in place
+      event->set_units(HepMC3::Units::GEV, HepMC3::Units::MM);
       events.push_back(std::move(event));
       m_inputs[inputIndex].eventsRead++;
     }
